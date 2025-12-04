@@ -34,13 +34,13 @@ def get_wasi_versions() -> List[str]:
 
 
 def compute_argv(test_path: str,
-                 args: List[str],
-                 env: Dict[str, str],
-                 dirs: List[Tuple[Path, str]],
+                 args_env_dirs: Tuple[List[str], Dict[str, str], List[Tuple[Path, str]]],
+                 proposals: List[str],
                  wasi_version: str) -> List[str]:
     if wasi_version != "wasm32-wasip1":
         raise RuntimeError(f"unsupported WASI version: {wasi_version}")
 
+    args, env, dirs = args_env_dirs
     node_cmd = shlex.split(os.environ.get("NODE", "node"))
     run_wasi = _ADAPTER_DIR / "run-wasi.mjs"
     argv = node_cmd + [str(run_wasi), f"--test-file={test_path}"]
