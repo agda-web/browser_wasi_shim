@@ -2,10 +2,16 @@
 import * as wasi from "./wasi_defs.js";
 
 export abstract class Fd {
+  fd_advise(offset: bigint, len: bigint, advice: number): number {
+    return wasi.ERRNO_SUCCESS;
+  }
   fd_allocate(offset: bigint, len: bigint): number {
     return wasi.ERRNO_NOTSUP;
   }
   fd_close(): number {
+    return 0;
+  }
+  fd_datasync(): number {
     return 0;
   }
   fd_fdstat_get(): { ret: number; fdstat: wasi.Fdstat | null } {

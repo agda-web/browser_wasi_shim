@@ -151,7 +151,6 @@ export default class WASI {
         return 0;
       },
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       clock_res_get(id: number, res_ptr: number): number {
         let resolutionValue: bigint;
         switch (id) {
@@ -199,15 +198,12 @@ export default class WASI {
 
       fd_advise(
         fd: number,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         offset: bigint,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         len: bigint,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         advice: number,
       ): number {
         if (self.fds[fd] != undefined) {
-          return wasi.ERRNO_SUCCESS;
+          return self.fds[fd].fd_advise(offset, len, advice);
         } else {
           return wasi.ERRNO_BADF;
         }
@@ -231,7 +227,7 @@ export default class WASI {
       },
       fd_datasync(fd: number): number {
         if (self.fds[fd] != undefined) {
-          return self.fds[fd].fd_sync();
+          return self.fds[fd].fd_datasync();
         } else {
           return wasi.ERRNO_BADF;
         }
@@ -355,7 +351,6 @@ export default class WASI {
       fd_prestat_dir_name(
         fd: number,
         path_ptr: number,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         path_len: number,
       ): number {
         // FIXME don't ignore path_len
@@ -459,7 +454,6 @@ export default class WASI {
         if (self.fds[fd] != undefined) {
           let bufused = 0;
 
-          // eslint-disable-next-line no-constant-condition
           while (true) {
             const { ret, dirent } = self.fds[fd].fd_readdir_single(cookie);
             if (ret != 0) {
@@ -785,6 +779,7 @@ export default class WASI {
           const new_path = new TextDecoder("utf-8").decode(
             buffer8.slice(new_path_ptr, new_path_ptr + new_path_len),
           );
+          // FIXME: make path_rename a fd method
           // eslint-disable-next-line prefer-const
           let { ret, inode_obj } = self.fds[fd].path_unlink(old_path);
           if (inode_obj == null) {

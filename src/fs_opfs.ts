@@ -146,6 +146,10 @@ export class OpenSyncOPFSFile extends Fd {
   }
 
   fd_sync(): number {
+    return this.fd_datasync();
+  }
+
+  fd_datasync(): number {
     this.file.handle.flush();
     return wasi.ERRNO_SUCCESS;
   }
