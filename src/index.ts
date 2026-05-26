@@ -9,6 +9,7 @@ export {
   OpenFile,
   OpenDirectory,
   PreopenDirectory,
+  StdinBuffer,
   ConsoleStdout,
 } from "./fs_mem.js";
 export { SyncOPFSFile, OpenSyncOPFSFile } from "./fs_opfs.js";
