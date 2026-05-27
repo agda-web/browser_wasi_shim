@@ -24,8 +24,7 @@ jobs:
       - name: test-playground
         run: |
           curl -L https://github.com/haskell-wasm/ghc-in-browser/archive/refs/heads/gh-pages.tar.gz | tar xz --strip-components=1
-
-          sed -i -e "s|https://esm.sh/gh/haskell-wasm/browser_wasi_shim|./dist/index.js|" index.html
+          ./test/patch-playground-ci.sh
           curl -L https://raw.githubusercontent.com/haskell-wasm/ghc/refs/heads/ghc-9.14/.gitlab/hello.hs -O
           curl -L https://raw.githubusercontent.com/haskell-wasm/ghc/refs/heads/ghc-9.14/testsuite/tests/ghc-api-browser/playground001.js -o test.cjs
           sed -i -e 's|".mjs": "application/javascript",|".mjs": "application/javascript", ".js": "application/javascript"|' test.cjs
