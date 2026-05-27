@@ -1,6 +1,7 @@
 import * as wasi from "./wasi_defs.js";
 import { Fd } from "./fd.js";
 import { PreopenDirectory } from "./fs_mem.js";
+import { StdinBuffer } from "./chardevs.js";
 import { debug } from "./debug.js";
 
 export interface Options {
@@ -834,51 +835,111 @@ export default class WASI {
         in_ptr: number,
         out_ptr: number,
         nsubscriptions: number,
+        nevents_ptr: number,
       ): number {
         if (nsubscriptions === 0) {
           return wasi.ERRNO_INVAL;
         }
-        // TODO: For now, we only support a single subscription just to be enough for wasi-libc's
-        // clock_nanosleep.
-        if (nsubscriptions > 1) {
-          debug.log("poll_oneoff: only a single subscription is supported");
-          return wasi.ERRNO_NOTSUP;
-        }
 
-        // Read a subscription from the in buffer
         const buffer = new DataView(self.inst.exports.memory.buffer);
-        const s = wasi.Subscription.read_bytes(buffer, in_ptr);
-        const eventtype = s.eventtype;
-        const clockid = s.clockid;
-        const timeout = s.timeout;
-        // TODO: For now, we only support clock subscriptions.
-        if (eventtype !== wasi.EVENTTYPE_CLOCK) {
-          debug.log("poll_oneoff: only clock subscriptions are supported");
+
+        let fdsub: wasi.SubscriptionFdReadwrite | undefined;
+        let clocksub: wasi.SubscriptionClock | undefined;
+        let ok = nsubscriptions <= 2;
+        for (let i = 0; i < nsubscriptions; i++) {
+          if (!ok) break;
+
+          let s: wasi.Subscription;
+          try {
+            s = wasi.Subscription.read_bytes(buffer, in_ptr + i * 48);
+          } catch {
+            return wasi.ERRNO_INVAL;
+          }
+          if (s.is_clock() && !clocksub) {
+            clocksub = s;
+          } else if (!s.is_clock() && !fdsub) {
+            fdsub = s as wasi.SubscriptionFdReadwrite;
+          } else {
+            ok = false;
+          }
+        }
+
+        // TODO: For now, we only support cases just to be enough for Haskell's RTS.
+        if (!ok) {
+          debug.log(
+            "poll_oneoff: only one or two subscriptions (a fd and/or a clock) is supported; you have " +
+              nsubscriptions,
+          );
           return wasi.ERRNO_NOTSUP;
         }
 
-        // Select timer
-        let getNow: (() => bigint) | undefined = undefined;
-        if (clockid === wasi.CLOCKID_MONOTONIC) {
-          getNow = () => BigInt(Math.round(performance.now() * 1_000_000));
-        } else if (clockid === wasi.CLOCKID_REALTIME) {
-          getNow = () => BigInt(new Date().getTime()) * 1_000_000n;
-        } else {
-          return wasi.ERRNO_INVAL;
+        if (fdsub) {
+          if (!self.fds[fdsub.fd]) {
+            return wasi.ERRNO_BADF;
+          }
+
+          // if a regular fd is queried, always report it as ready
+          let ready = true;
+          if (
+            fdsub.eventtype === wasi.EVENTTYPE_FD_READ &&
+            self.fds[fdsub.fd] instanceof StdinBuffer
+          ) {
+            if (!clocksub) {
+              (self.fds[fdsub.fd] as StdinBuffer).blockUntilAvailable();
+            } else {
+              // FIXME: else always assume non-ready
+              ready = false;
+            }
+          }
+
+          if (ready) {
+            const event = new wasi.Event(
+              fdsub.userdata,
+              wasi.ERRNO_SUCCESS,
+              fdsub.eventtype,
+            );
+            event.write_bytes(buffer, out_ptr);
+            buffer.setUint32(nevents_ptr, 1, true);
+            return wasi.ERRNO_SUCCESS;
+          }
         }
 
-        // Perform the wait
-        const endTime =
-          (s.flags & wasi.SUBCLOCKFLAGS_SUBSCRIPTION_CLOCK_ABSTIME) !== 0
-            ? timeout
-            : getNow() + timeout;
-        while (endTime > getNow()) {
-          // block until the timeout is reached
-        }
+        // handle the clock subscription
+        if (clocksub) {
+          const eventtype = clocksub.eventtype;
+          const clockid = clocksub.clockid;
+          const timeout = clocksub.timeout;
 
-        // Write an event to the out buffer
-        const event = new wasi.Event(s.userdata, wasi.ERRNO_SUCCESS, eventtype);
-        event.write_bytes(buffer, out_ptr);
+          // Select timer
+          let getNow: (() => bigint) | undefined = undefined;
+          if (clockid === wasi.CLOCKID_MONOTONIC) {
+            getNow = () => BigInt(Math.round(performance.now() * 1_000_000));
+          } else if (clockid === wasi.CLOCKID_REALTIME) {
+            getNow = () => BigInt(new Date().getTime()) * 1_000_000n;
+          } else {
+            return wasi.ERRNO_INVAL;
+          }
+
+          // Perform the wait
+          const endTime =
+            (clocksub.flags & wasi.SUBCLOCKFLAGS_SUBSCRIPTION_CLOCK_ABSTIME) !==
+            0
+              ? timeout
+              : getNow() + timeout;
+
+          while (endTime > getNow()) {
+            // block until the timeout is reached
+          }
+
+          // Write an event to the out buffer
+          const event = new wasi.Event(
+            clocksub.userdata,
+            wasi.ERRNO_SUCCESS,
+            eventtype,
+          );
+          event.write_bytes(buffer, out_ptr);
+          buffer.setUint32(nevents_ptr, 1, true);
+        }
 
         return wasi.ERRNO_SUCCESS;
       },

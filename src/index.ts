@@ -9,9 +9,9 @@ export {
   OpenFile,
   OpenDirectory,
   PreopenDirectory,
-  StdinBuffer,
   ConsoleStdout,
 } from "./fs_mem.js";
+export { StdinBuffer } from "./chardevs.js";
 export { SyncOPFSFile, OpenSyncOPFSFile } from "./fs_opfs.js";
 export { strace } from "./strace.js";
 export * as wasi from "./wasi_defs.js";

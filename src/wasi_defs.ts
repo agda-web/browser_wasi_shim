@@ -310,23 +310,68 @@ export const EVENTRWFLAGS_FD_READWRITE_HANGUP = 1 << 0;
 
 export const SUBCLOCKFLAGS_SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0;
 
-export class Subscription {
+export abstract class Subscription {
   constructor(
     public userdata: bigint,
     public eventtype: number,
-    public clockid: number,
-    public timeout: bigint,
-    public flags: number,
   ) {}
 
+  is_clock(): this is SubscriptionClock {
+    return this.eventtype === EVENTTYPE_CLOCK;
+  }
+
   static read_bytes(view: DataView, ptr: number): Subscription {
-    return new Subscription(
-      view.getBigUint64(ptr, true),
-      view.getUint8(ptr + 8),
-      view.getUint32(ptr + 16, true),
-      view.getBigUint64(ptr + 24, true),
-      view.getUint16(ptr + 36, true),
-    );
+    const userdata = view.getBigUint64(ptr, true);
+    const eventtype = view.getUint8(ptr + 8);
+
+    if (eventtype === EVENTTYPE_CLOCK) {
+      return new SubscriptionClock(
+        userdata,
+        view.getUint32(ptr + 16, true),
+        view.getBigUint64(ptr + 24, true),
+        view.getBigUint64(ptr + 32, true),
+        view.getUint16(ptr + 40, true),
+      );
+    } else if (
+      eventtype === EVENTTYPE_FD_READ ||
+      eventtype === EVENTTYPE_FD_WRITE
+    ) {
+      return new SubscriptionFdReadwrite(
+        userdata,
+        eventtype,
+        view.getUint32(ptr + 16, true),
+      );
+    } else {
+      throw new TypeError(
+        `Subscription.read_bytes: Invalid eventtype ${eventtype}`,
+      );
+    }
+  }
+}
+
+export class SubscriptionClock extends Subscription {
+  declare eventtype: typeof EVENTTYPE_CLOCK;
+
+  constructor(
+    userdata: bigint,
+    public clockid: number,
+    public timeout: bigint,
+    public precision: bigint,
+    public flags: number,
+  ) {
+    super(userdata, EVENTTYPE_CLOCK);
+  }
+}
+
+export class SubscriptionFdReadwrite extends Subscription {
+  declare eventtype: typeof EVENTTYPE_FD_READ | typeof EVENTTYPE_FD_WRITE;
+
+  constructor(
+    userdata: bigint,
+    eventtype: number,
+    public fd: number,
+  ) {
+    super(userdata, eventtype);
   }
 }
 
@@ -335,12 +380,19 @@ export class Event {
     public userdata: bigint,
     public error: number,
     public eventtype: number,
+    public fd_readwrite_nbytes: bigint = 0n,
+    public fd_readwrite_flags: number = 0,
   ) {}
 
   write_bytes(view: DataView, ptr: number) {
     view.setBigUint64(ptr, this.userdata, true);
     view.setUint16(ptr + 8, this.error, true);
     view.setUint8(ptr + 10, this.eventtype);
+
+    if (this.eventtype !== EVENTTYPE_CLOCK) {
+      view.setBigUint64(ptr + 16, this.fd_readwrite_nbytes, true);
+      view.setUint32(ptr + 24, this.fd_readwrite_flags, true);
+    }
   }
 }
 
