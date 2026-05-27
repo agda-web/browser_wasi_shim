@@ -92,6 +92,19 @@ async function configureRoutes(context, harnessURL) {
       body: content,
     });
   });
+
+  context.route(`${harnessURL}/spsc/*.js`, async route => {
+    const pathname = new URL(route.request().url()).pathname;
+    const distRelativePath = pathname.slice(pathname.indexOf("/spsc/") + "/spsc/".length);
+    const distDir = new URL("../../../node_modules/spsc/dist", import.meta.url);
+    const distPath = path.join(distDir.pathname, distRelativePath);
+    const content = await fs.readFile(distPath);
+    route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: content,
+    });
+  });
 }
 
 async function runWASIOnBrowser(options) {
