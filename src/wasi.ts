@@ -735,6 +735,10 @@ export default class WASI {
           );
           debug.log(path);
           const { ret, data } = self.fds[fd].path_readlink(path);
+          // FIXME: returns ENOENT when the path does not exist
+          if (ret == wasi.ERRNO_NOTSUP) {
+            return wasi.ERRNO_INVAL;
+          }
           if (data != null) {
             const data_buf = new TextEncoder().encode(data);
             if (data_buf.length > buf_len) {
