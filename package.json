@@ -40,8 +40,5 @@
     "playwright": "^1.58.1",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "spsc": "^0.0.7"
   }
 }

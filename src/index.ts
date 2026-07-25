@@ -11,7 +11,7 @@ export {
   PreopenDirectory,
   ConsoleStdout,
 } from "./fs_mem.js";
-export { ReadablePipe, WritablePipe } from "./chardevs.js";
+// export { ReadablePipe, WritablePipe } from "./chardevs.js";
 export { SyncOPFSFile, OpenSyncOPFSFile } from "./fs_opfs.js";
 export { strace } from "./strace.js";
 export * as wasi from "./wasi_defs.js";

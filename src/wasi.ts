@@ -1,7 +1,7 @@
 import * as wasi from "./wasi_defs.js";
 import { Fd } from "./fd.js";
 import { PreopenDirectory } from "./fs_mem.js";
-import { ReadablePipe, WritablePipe } from "./chardevs.js";
+// import { ReadablePipe, WritablePipe } from "./chardevs.js";
 import { debug } from "./debug.js";
 
 export interface Options {
@@ -884,23 +884,23 @@ export default class WASI {
 
           // if a regular fd is queried, always report it as ready
           let ready = true;
-          const mayBlock =
-            (fdsub.eventtype === wasi.EVENTTYPE_FD_READ &&
-              self.fds[fdsub.fd] instanceof ReadablePipe) ||
-            (fdsub.eventtype === wasi.EVENTTYPE_FD_WRITE &&
-              self.fds[fdsub.fd] instanceof WritablePipe);
+          const mayBlock = false;
+          //   (fdsub.eventtype === wasi.EVENTTYPE_FD_READ &&
+          //     self.fds[fdsub.fd] instanceof ReadablePipe) ||
+          //   (fdsub.eventtype === wasi.EVENTTYPE_FD_WRITE &&
+          //     self.fds[fdsub.fd] instanceof WritablePipe);
 
           if (mayBlock) {
             // FIXME: for simplicity we always assume non-ready; should peek availablity and only await when not ready
             if (clocksub) {
               ready = false;
             } else {
-              const pipe = self.fds[fdsub.fd];
+              // const pipe = self.fds[fdsub.fd];
               let pollResult: boolean;
-              if (fdsub.eventtype === wasi.EVENTTYPE_FD_READ)
-                pollResult = (pipe as ReadablePipe).pollRead();
-              else if (fdsub.eventtype === wasi.EVENTTYPE_FD_WRITE)
-                pollResult = (pipe as WritablePipe).pollWrite();
+              // if (fdsub.eventtype === wasi.EVENTTYPE_FD_READ)
+              //   pollResult = (pipe as ReadablePipe).pollRead();
+              // else if (fdsub.eventtype === wasi.EVENTTYPE_FD_WRITE)
+              //   pollResult = (pipe as WritablePipe).pollWrite();
               ready = pollResult;
             }
           }
